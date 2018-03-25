@@ -88,12 +88,15 @@ ui <- fluidPage(
 # Define server logic required to draw a histogram
 server <- function(input, output) {
   controls = list()
+  tempList = list()
+  tempData = NULL
 
   RV <- reactiveValues(
     updateUI = 0,
     dataList = list(),
     layerList = list(),
-    layerNames = vector()
+    layerNames = vector(),
+    renderCP = 0
   )
   
   #### Create Layer Tab ####
@@ -112,8 +115,9 @@ server <- function(input, output) {
       ))
       return()
     }
-    RV$layerList[[input$layerName]] <<- list(g)
+    RV$layerList[[input$layerName]] <<- list(tempType,tempData,tempList)
     RV$layerNames <<- c(RV$layerNames,input$layerName)
+    RV$renderCP = rnorm(1)
   })
   
   observe({
@@ -145,31 +149,30 @@ server <- function(input, output) {
   output$plot <- renderPlot({
      input$updatePlot
      
-     tempList = list()
      aes = isolate(aes_list[[input$plotTypeSelect]])
      for(i in aes){
        aesName = sub(pattern = '\\*',replacement = '',x = i)
        input[[aesName]]
        input[[paste0(aesName,"_Checkbox")]]
        if(isolate(input[[paste0(aesName,"_Checkbox")]])){
-        tempList[[aesName]] = isolate(input[[aesName]])
+        tempList[[aesName]] <<- isolate(input[[aesName]])
        }
      }
-     g <<- ggplot(data = RV$dataList[[input$selectedDF]]) 
-     g <<- g + do.call(paste0("geom_",input$plotTypeSelect),args = list(mapping = do.call("aes_string", tempList)))
+     tempData <<- isolate(input$selectedDF)
+     tempType <<- isolate(input$plotTypeSelect)
+     g = ggplot(data = RV$dataList[[input$selectedDF]]) 
+     g = g + do.call(paste0("geom_",input$plotTypeSelect),args = list(mapping = do.call("aes_string", tempList)))
      g
   })
    
   output$combinedPlot <- renderPlot({
-    cp = NULL
-    for(i in RV$layerList){
-      if(is.null(cp)){
-        cp = i
-      }else{
-        cp = cp + i
-      }
+    RV$renderCP
+    cp = ggplot()
+    tempLayerList = isolate(RV$layerList)
+    for(i in tempLayerList){
+      cp = cp + do.call(paste0("geom_",i[[1]]), args = list(data = isolate(RV$dataList[[i[[2]]]]), mapping = do.call("aes_string", i[[3]])))
     }
-    if(isolate(length(RV$layerList)) == 0){
+    if(length(tempLayerList) == 0){
       cp = geom_blank() + theme_void()
     }
     cp
