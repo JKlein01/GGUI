@@ -53,7 +53,7 @@ ui <- fluidPage(
         tabsetPanel(
           tabPanel("Create Layer",
              br(),
-             selectizeInput(inputId = "plotTypeSelect",label = "Select Plot Type",choices = names(aes_list)),
+             selectizeInput(inputId = "plotTypeSelect",label = "Select Plot Type",choices = sort(names(aes_list))),
              splitLayout(
                fileInput(inputId = 'importData',label = "Import CSV",accept = c("text/csv",
                                                                                 "text/comma-separated-values,text/plain",
@@ -169,8 +169,16 @@ server <- function(input, output) {
     RV$renderCP
     cp = ggplot()
     tempLayerList = isolate(RV$layerList)
+    j = 1
     for(i in tempLayerList){
-      cp = cp + do.call(paste0("geom_",i[[1]]), args = list(data = isolate(RV$dataList[[i[[2]]]]), mapping = do.call("aes_string", i[[3]])))
+      if(!is.null(input[[paste0(names(tempLayerList)[j],"_Checkbox")]])){
+        if(input[[paste0(names(tempLayerList)[j],"_Checkbox")]]){
+          cp = cp + do.call(paste0("geom_",i[[1]]), args = list(data = isolate(RV$dataList[[i[[2]]]]), mapping = do.call("aes_string", i[[3]])))
+        }
+      } else {
+          cp = cp + do.call(paste0("geom_",i[[1]]), args = list(data = isolate(RV$dataList[[i[[2]]]]), mapping = do.call("aes_string", i[[3]])))
+      }
+      j = j + 1
     }
     if(length(tempLayerList) == 0){
       cp = geom_blank() + theme_void()
@@ -184,7 +192,8 @@ server <- function(input, output) {
     for(i in RV$layerNames){
       layerOutput[[i]]  = splitLayout(
         h3(i),
-        actionButton(paste0('deleteLayer_',i),'Delete Layer')
+        actionButton(paste0('deleteLayer_',i),'Delete Layer'),
+        checkboxInput(inputId = paste0(i,"_Checkbox"),label = "",value = T)
       )
     }
     layerOutput
