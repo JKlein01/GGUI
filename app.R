@@ -46,46 +46,56 @@ ui <- fluidPage(
    
    # Application title
    titlePanel("GGUI"),
-   
-   # Sidebar with a slider input for number of bins 
-   sidebarLayout(
-      sidebarPanel(style = "overflow-y:scroll; max-height: 1000px",
-        tabsetPanel(
-          tabPanel("Create Layer",
-             br(),
-             selectizeInput(inputId = "plotTypeSelect",label = "Select Plot Type",choices = sort(names(aes_list))),
-             splitLayout(
-               fileInput(inputId = 'importData',label = "Import CSV",accept = c("text/csv",
-                                                                                "text/comma-separated-values,text/plain",
-                                                                                ".csv")),
-               textInput(inputId = 'dataName', label = "Dataset Name",value = "Data")
-             ),
-             br(),
-             br(),
-             splitLayout(
-               actionButton("saveLayer","Save Layer"),
-               textInput(inputId = 'layerName', label = "Layer Name Name",value = "")
-             ),
-             br(),
-             br(),
-             uiOutput("selectData"),
-             uiOutput("controls")
+   navbarPage('',
+     tabPanel("Plot Creation",
+       sidebarLayout(
+          sidebarPanel(style = "overflow-y:scroll; max-height: 1000px",
+            tabsetPanel(
+              tabPanel("Create Layer",
+                 br(),
+                 selectizeInput(inputId = "plotTypeSelect",label = "Select Plot Type",choices = sort(names(aes_list))),
+                 splitLayout(
+                   fileInput(inputId = 'importData',label = "Import CSV",accept = c("text/csv",
+                                                                                    "text/comma-separated-values,text/plain",
+                                                                                    ".csv")),
+                   textInput(inputId = 'dataName', label = "Dataset Name",value = "Data")
+                 ),
+                 br(),
+                 br(),
+                 splitLayout(
+                   actionButton("saveLayer","Save Layer"),
+                   textInput(inputId = 'layerName', label = "Layer Name Name",value = "")
+                 ),
+                 br(),
+                 br(),
+                 uiOutput("selectData"),
+                 uiOutput("controls")
+              ),
+             tabPanel("Saved Layers",
+                 uiOutput("savedLayers")
+              )
+            )
           ),
-         tabPanel("Saved Layers",
-             uiOutput("savedLayers")
+          
+          # Show a plot of the generated distribution
+          mainPanel(
+             plotOutput("plot"),
+             plotOutput("combinedPlot")
+          )
+       )
+     ),
+     tabPanel('Data Manipulation',
+        sidebarLayout(
+          sidebarPanel(style = "overflow-y:scroll; max-height: 1000px"
+          ),
+          mainPanel(
+          
           )
         )
-      ),
-      
-      # Show a plot of the generated distribution
-      mainPanel(
-         plotOutput("plot"),
-         plotOutput("combinedPlot")
-      )
+     )
    )
 )
 
-# Define server logic required to draw a histogram
 server <- function(input, output) {
   controls = list()
   tempList = list()
@@ -95,7 +105,7 @@ server <- function(input, output) {
     updateUI = 0,
     dataList = list(),
     layerList = list(),
-    layerNames = vector(),
+    #layerNames = vector(),
     renderCP = 0
   )
   
@@ -116,7 +126,7 @@ server <- function(input, output) {
       return()
     }
     RV$layerList[[input$layerName]] <<- list(tempType,tempData,tempList)
-    RV$layerNames <<- c(RV$layerNames,input$layerName)
+    #RV$layerNames <<- c(RV$layerNames,input$layerName)
     RV$renderCP = rnorm(1)
   })
   
@@ -189,15 +199,23 @@ server <- function(input, output) {
   #### Save Layer Tab ####
   output$savedLayers <- renderUI({
     layerOutput = list()
-    for(i in RV$layerNames){
+    for(i in names(RV$layerList)){
       layerOutput[[i]]  = splitLayout(
         h3(i),
-        actionButton(paste0('deleteLayer_',i),'Delete Layer'),
+        actionButton(paste0('deleteLayer_',i),'Delete Layer', onclick = "Shiny.onInputChange('delete_layer',this.id + '_' + Math.random())"),
         checkboxInput(inputId = paste0(i,"_Checkbox"),label = "",value = T)
       )
     }
     layerOutput
   })
+  
+  observeEvent(input$delete_layer,{
+    layer = strsplit(input$delete_layer,"_")[[1]][[2]]
+    RV$layerList[[layer]] = NULL
+    RV$renderCP = rnorm(1)
+  })
+  
+  #### Data Manipulation Tab ####
 }
 
 # Run the application 
